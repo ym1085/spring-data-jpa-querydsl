@@ -21,9 +21,6 @@ class SpringDataJpaQuerydslApplicationTests {
 	@PersistenceContext
 	private EntityManager em;
 
-	/**
-	 * Test when application is loaded
-	 */
 	@Test
 	void contextLoads() {
 		// 객체 생성 : Hello Entity

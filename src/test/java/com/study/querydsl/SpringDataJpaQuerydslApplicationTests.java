@@ -5,6 +5,7 @@ import com.study.querydsl.entity.Hello;
 import com.study.querydsl.entity.QHello;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.Commit;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
@@ -14,6 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Transactional
+@Commit
 class SpringDataJpaQuerydslApplicationTests {
 
 	@PersistenceContext
@@ -30,7 +32,7 @@ class SpringDataJpaQuerydslApplicationTests {
 
 		// Querydsl 사용을 위해 JPAQueryFactory 생성
 		JPAQueryFactory query = new JPAQueryFactory(em);
-		QHello qHello = new QHello("h");
+		QHello qHello = new QHello("h"); // variable: alias
 
 		// Querydsl 사용
 		Hello result = query

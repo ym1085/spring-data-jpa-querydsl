@@ -13,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
+import java.util.List;
+
 import static com.study.querydsl.entity.QMember.member;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -85,7 +87,7 @@ public class QueryDslBasicTest {
 
     @Test
     @DisplayName("Querydsl에서 Q Class를 사용하는 방법 테스트")
-    public void createQuerydslQueueClass() {
+    public void createQuerydslQueueClass() throws Exception {
         // 기본 인스턴스 사용
         QMember m1 = member;
 
@@ -97,5 +99,55 @@ public class QueryDslBasicTest {
                 .fetchOne();
 
         assertThat(findMember.getUserName()).isEqualTo("김영민");
+    }
+
+    @Test
+    @DisplayName("Querydsl의 where절에 사용되는 구문 테스트 - eq, ne, between")
+    public void search() throws Exception {
+        // 이름이 임수현이 아닌 모든 회원 조회
+        List<Member> findMember_1 = queryFactory
+                .selectFrom(member)
+                .where(member.userName.ne("임수현"))
+                .fetch(); // ne
+
+        assertThat(findMember_1).hasSizeGreaterThan(0);
+
+        // 이름이 임수현이고, 나이가 29인 단일 회원 조회
+        Member findMember_2 = queryFactory
+                .selectFrom(member)
+                .where(member.userName.eq("임수현")
+                                      .and(member.age.eq(29)))
+                .fetchOne(); // eq
+
+        assertThat(findMember_2.getUserName()).isEqualTo("임수현");
+
+        // 나이가 20 ~ 29 사이에 존재하는 회원 조회
+        List<Member> findMember_3 = queryFactory
+                .select(member)
+                .from(member)
+                .where(member.age.between(20, 29))
+                .fetch();
+
+        assertThat(findMember_3).isNotEmpty();
+        assertThat(findMember_3).hasSize(3); // expect) 3명의 회원
+
+        for (Member member : findMember_3) {
+            System.out.println(">>>>>>>> member.getUserName = " + member.getUserName() + ", age = " + member.getAge());
+        }
+    }
+
+    @Test
+    @DisplayName("Querydsl의 where절에 사용되는 구문 테스트 - and를 다른 방식으로 사용")
+    public void searchAndParam() throws Exception {
+        Member findMember = queryFactory
+                .selectFrom(member)
+                .where(
+                        member.userName.eq("김영민"),
+                        member.age.eq(30)
+                )
+                .fetchOne();
+
+        assertThat(findMember.getUserName()).isEqualTo("김영민");
+        assertThat(findMember.getAge()).isEqualTo(30);
     }
 }

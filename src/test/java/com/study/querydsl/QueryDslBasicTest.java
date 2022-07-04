@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 
+import static com.study.querydsl.entity.QMember.member;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
@@ -80,5 +81,21 @@ public class QueryDslBasicTest {
                 .fetchOne();
 
         assertThat(findMember.getUserName()).isEqualTo("임수현");
+    }
+
+    @Test
+    @DisplayName("Querydsl에서 Q Class를 사용하는 방법 테스트")
+    public void createQuerydslQueueClass() {
+        // 기본 인스턴스 사용
+        QMember m1 = member;
+
+        // QMember.member -> member ==> static import
+        Member findMember = queryFactory
+                .select(member)
+                .from(member)
+                .where(member.userName.eq("김영민"))
+                .fetchOne();
+
+        assertThat(findMember.getUserName()).isEqualTo("김영민");
     }
 }

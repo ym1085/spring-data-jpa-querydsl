@@ -12,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
-
 import java.util.List;
 
 import static com.study.querydsl.entity.QMember.member;
@@ -149,5 +148,32 @@ public class QueryDslBasicTest {
 
         assertThat(findMember.getUserName()).isEqualTo("김영민");
         assertThat(findMember.getAge()).isEqualTo(30);
+    }
+
+    @Test
+    @DisplayName("결과 조회 테스트")
+    public void resultFetchTest() throws Exception {
+        /*List<Member> memberList = queryFactory
+                .selectFrom(member)
+                .fetch();
+
+        Member findMember = queryFactory
+                .selectFrom(member)
+                .fetchOne();
+
+        Member firstMember = queryFactory
+                .selectFrom(member)
+                .fetchFirst();*/
+
+        /*QueryResults<Member> result = queryFactory
+                .selectFrom(member)
+                .fetchResults();
+
+        result.getTotal();
+        List<Member> results = result.getResults();*/
+
+        long total = queryFactory
+                .selectFrom(member)
+                .fetchCount();
     }
 }

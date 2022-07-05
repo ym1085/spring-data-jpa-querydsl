@@ -1,5 +1,7 @@
 package com.study.querydsl;
 
+import com.querydsl.core.QueryResults;
+import com.querydsl.core.Tuple;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.study.querydsl.entity.Member;
 import com.study.querydsl.entity.QMember;
@@ -15,6 +17,7 @@ import javax.persistence.PersistenceContext;
 import java.util.List;
 
 import static com.study.querydsl.entity.QMember.member;
+import static com.study.querydsl.entity.QTeam.team;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
@@ -30,30 +33,24 @@ public class QueryDslBasicTest {
     @BeforeEach
     public void before() {
         queryFactory = new JPAQueryFactory(em);
-
         Team teamA = new Team("데이터 플랫폼 팀");
         Team teamB = new Team("인프라 팀");
         Team teamC = new Team("웹 개발 팀");
-        Team teamD = new Team("APP 개발 팀");
         em.persist(teamA);
         em.persist(teamB);
         em.persist(teamC);
-        em.persist(teamD);
 
-        Member member1 = new Member("김영민", 30, teamA);
+        Member member1 = new Member("김영민", 33, teamA);
         Member member2 = new Member("원영식", 30, teamA);
         em.persist(member1);
         em.persist(member2);
 
-        Member member3 = new Member("김진엽", 29, teamB);
-        Member member4 = new Member("박진우", 29, teamB);
+        Member member3 = new Member("김진엽", 27, teamB);
+        Member member4 = new Member("박진우", 28, teamB);
         Member member5 = new Member("임수현", 29, teamB);
         em.persist(member3);
         em.persist(member4);
         em.persist(member5);
-
-        Member member6 = new Member("김주한", 19, teamD);
-        em.persist(member6);
     }
 
     @Test
@@ -142,12 +139,12 @@ public class QueryDslBasicTest {
                 .selectFrom(member)
                 .where(
                         member.userName.eq("김영민"),
-                        member.age.eq(30)
+                        member.age.eq(33)
                 )
                 .fetchOne();
 
         assertThat(findMember.getUserName()).isEqualTo("김영민");
-        assertThat(findMember.getAge()).isEqualTo(30);
+        assertThat(findMember.getAge()).isEqualTo(33);
     }
 
     @Test
@@ -175,5 +172,108 @@ public class QueryDslBasicTest {
         long total = queryFactory
                 .selectFrom(member)
                 .fetchCount();
+    }
+
+    @Test
+    @DisplayName("정렬 테스트 진행")
+    public void test() throws Exception {
+        // 회원 이름 순으로 내림차순, 나이 순으로 오름차순
+        em.persist(new Member(null, 100));
+        em.persist(new Member("김영민", 100));
+        em.persist(new Member("정주리", 100));
+
+        //querydsl 작성
+        List<Member> memberList = queryFactory
+                .selectFrom(member)
+                .where(member.age.eq(100))
+                .orderBy(member.age.asc(), member.userName.desc().nullsLast())
+                .fetch();
+
+        System.out.println(">>>> memberList = " + memberList.toString());
+
+        Member member = memberList.get(0);
+        Member member1 = memberList.get(1);
+        Member member2 = memberList.get(2);
+        assertThat(member.getUserName()).isEqualTo("정주리");
+        assertThat(member1.getUserName()).isEqualTo("김영민");
+        assertThat(member2.getUserName()).isNull();
+    }
+
+    @Test
+    @DisplayName("일반 페이징 테스트 진행")
+    public void paging() throws Exception {
+        // Team 3개, Member 5명
+        // Querydsl의 offset은 0부터 시작이 된다
+        // offset: 시작 인덱스(row)
+        // limit: 조회 개수
+        List<Member> memberListByPaging = queryFactory // 김영민, 원영식, 임수현, 박진우, 김진엽
+                .selectFrom(member)
+                .orderBy(member.age.desc())
+                .offset(0)
+                .limit(5)
+                .fetch();
+        System.out.println(">>>> memberListByPaging = " + memberListByPaging.toString());
+
+        assertThat(memberListByPaging.size()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("Count 포함 페이징 테스트 진행")
+    public void pagingWithCount() throws Exception {
+        QueryResults<Member> queryResult = queryFactory
+                .selectFrom(member)
+                .orderBy(member.age.desc())
+                .offset(0)
+                .limit(10)
+                .fetchResults();
+
+        assertThat(queryResult.getResults().size()).isEqualTo(5); // 전체 회원 사이즈
+        assertThat(queryResult.getLimit()).isEqualTo(10);
+        assertThat(queryResult.getTotal()).isEqualTo(5);
+        assertThat(queryResult.getOffset()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("집합 테스트")
+    public void aggregation() throws Exception {
+        List<Tuple> result = queryFactory
+                .select(
+                        member.count(),
+                        member.age.avg(),
+                        member.age.max(),
+                        member.age.min(),
+                        member.age.sum()
+                )
+                .from(member)
+                .fetch();
+
+        Tuple tuple = result.get(0);
+        assertThat(tuple.get(member.count())).isEqualTo(5);
+        assertThat(tuple.get(member.age.avg())).isEqualTo(29.4);
+        assertThat(tuple.get(member.age.max())).isEqualTo(33);
+        assertThat(tuple.get(member.age.min())).isEqualTo(27);
+        assertThat(tuple.get(member.age.sum())).isEqualTo(147);
+    }
+
+    @Test
+    @DisplayName("groupBy 테스트")
+    public void groupBy() throws Exception {
+        List<Tuple> result = queryFactory
+                .select(
+                        team.name, member.age.avg()
+                )
+                .from(member)
+                .join(member.team, team)
+                .groupBy(team.name)
+                .fetch();
+
+        Tuple teamA = result.get(0);
+        Tuple teamB = result.get(1);
+
+        assertThat(teamA.get(team.name)).isEqualTo("데이터 플랫폼 팀");
+        assertThat(teamA.get(member.age.avg())).isEqualTo(31.5);
+
+        assertThat(teamB.get(team.name)).isEqualTo("인프라 팀");
+        assertThat(teamB.get(member.age.avg())).isEqualTo(28);
     }
 }

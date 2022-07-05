@@ -176,4 +176,29 @@ public class QueryDslBasicTest {
                 .selectFrom(member)
                 .fetchCount();
     }
+
+    @Test
+    @DisplayName("정렬 테스트 진행")
+    public void test() throws Exception {
+        // 회원 이름 순으로 내림차순, 나이 순으로 오름차순
+        em.persist(new Member(null, 100));
+        em.persist(new Member("김영민", 100));
+        em.persist(new Member("정주리", 100));
+
+        //querydsl 작성
+        List<Member> memberList = queryFactory
+                .selectFrom(member)
+                .where(member.age.eq(100))
+                .orderBy(member.age.asc(), member.userName.desc().nullsLast())
+                .fetch();
+
+        System.out.println(">>>> memberList = " + memberList.toString());
+
+        Member member = memberList.get(0);
+        Member member1 = memberList.get(1);
+        Member member2 = memberList.get(2);
+        assertThat(member.getUserName()).isEqualTo("정주리");
+        assertThat(member1.getUserName()).isEqualTo("김영민");
+        assertThat(member2.getUserName()).isNull();
+    }
 }

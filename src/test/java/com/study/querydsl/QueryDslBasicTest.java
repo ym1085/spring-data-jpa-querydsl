@@ -1,5 +1,6 @@
 package com.study.querydsl;
 
+import com.querydsl.core.QueryResults;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.study.querydsl.entity.Member;
 import com.study.querydsl.entity.QMember;
@@ -30,30 +31,24 @@ public class QueryDslBasicTest {
     @BeforeEach
     public void before() {
         queryFactory = new JPAQueryFactory(em);
-
         Team teamA = new Team("데이터 플랫폼 팀");
         Team teamB = new Team("인프라 팀");
         Team teamC = new Team("웹 개발 팀");
-        Team teamD = new Team("APP 개발 팀");
         em.persist(teamA);
         em.persist(teamB);
         em.persist(teamC);
-        em.persist(teamD);
 
-        Member member1 = new Member("김영민", 30, teamA);
+        Member member1 = new Member("김영민", 33, teamA);
         Member member2 = new Member("원영식", 30, teamA);
         em.persist(member1);
         em.persist(member2);
 
-        Member member3 = new Member("김진엽", 29, teamB);
-        Member member4 = new Member("박진우", 29, teamB);
-        Member member5 = new Member("임수현", 29, teamB);
+        Member member3 = new Member("김진엽", 27, teamB);
+        Member member4 = new Member("박진우", 28, teamB);
+        Member member5 = new Member("임수현", 29, teamC);
         em.persist(member3);
         em.persist(member4);
         em.persist(member5);
-
-        Member member6 = new Member("김주한", 19, teamD);
-        em.persist(member6);
     }
 
     @Test
@@ -200,5 +195,39 @@ public class QueryDslBasicTest {
         assertThat(member.getUserName()).isEqualTo("정주리");
         assertThat(member1.getUserName()).isEqualTo("김영민");
         assertThat(member2.getUserName()).isNull();
+    }
+
+    @Test
+    @DisplayName("일반 페이징 테스트 진행")
+    public void paging() throws Exception {
+        // Team 3개, Member 5명
+        // Querydsl의 offset은 0부터 시작이 된다
+        // offset: 시작 인덱스(row)
+        // limit: 조회 개수
+        List<Member> memberListByPaging = queryFactory // 김영민, 원영식, 임수현, 박진우, 김진엽
+                .selectFrom(member)
+                .orderBy(member.age.desc())
+                .offset(0)
+                .limit(5)
+                .fetch();
+        System.out.println(">>>> memberListByPaging = " + memberListByPaging.toString());
+
+        assertThat(memberListByPaging.size()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("Count 포함 페이징 테스트 진행")
+    public void pagingWithCount() throws Exception {
+        QueryResults<Member> queryResult = queryFactory
+                .selectFrom(member)
+                .orderBy(member.age.desc())
+                .offset(0)
+                .limit(10)
+                .fetchResults();
+
+        assertThat(queryResult.getResults().size()).isEqualTo(5); // 전체 회원 사이즈
+        assertThat(queryResult.getLimit()).isEqualTo(10);
+        assertThat(queryResult.getTotal()).isEqualTo(5);
+        assertThat(queryResult.getOffset()).isEqualTo(0);
     }
 }

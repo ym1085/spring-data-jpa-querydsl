@@ -287,18 +287,18 @@ public class QueryDslBasicTest {
     @DisplayName("조인 테스트")
     public void join() throws Exception {
         // INNER JOIN
-        /*List<Member> memberList = queryFactory
+        List<Member> memberList = queryFactory
                 .selectFrom(member)
                 .join(member.team, team) // QTeam
                 .where(team.name.eq("데이터 플랫폼 팀"))
-                .fetch();*/
+                .fetch();
 
         // LEFT JOIN
-        List<Member> memberList = queryFactory
+        /*List<Member> memberList = queryFactory
                 .selectFrom(member)
                 .leftJoin(member.team, team) // QTeam
                 .where(team.name.eq("데이터 플랫폼 팀"))
-                .fetch();
+                .fetch();*/
 
         for (Member member : memberList) {
             System.out.println("[TEST] member = " + member.toString());

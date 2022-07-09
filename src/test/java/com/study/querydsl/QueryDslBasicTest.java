@@ -337,4 +337,90 @@ public class QueryDslBasicTest {
                 .extracting("userName")
                 .containsExactly("데이터 플랫폼 팀", "인프라 팀");
     }
+
+    /**
+     * ex) 회원 팀을 조인하면서, 팀 이름이 '데이터 플랫폼 팀'인 팀만 조회, 회원은 모두 조회
+     * JPQL
+     *  - select m, t
+     *      from Member m
+     *      left join m.team t
+     *      on t.name = 'teamA'
+     */
+    @Test
+    @DisplayName("조인 - on 절 테스트")
+    public void join_on_filtering() throws Exception {
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(member.team, team)
+                //.where(team.name.eq("데이터 플랫폼 팀")) // 전체 데이터에서 필터링(조건에 맞는 데이터만 출력)
+                .on(team.name.eq("데이터 플랫폼 팀")) // left join 의 조건이 되주어 null로 남는다
+                .fetch();
+
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple);
+        }
+    }
+
+    @Test
+    @DisplayName("다양한 on 절 케이스 테스트")
+    public void join_on_test() throws Exception {
+        // -------------------------------------------------------------- //
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(member.team, team)
+                .fetch();
+
+        for (Tuple tuple : result) {
+            System.out.println("tuple  = " + tuple.toString());
+        }
+
+        List<Tuple> resultByOn = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(member.team, team)
+                .on(team.name.eq("데이터 플랫폼 팀"))
+                .fetch();
+
+        for (Tuple tuple : resultByOn) {
+            System.out.println("tuple  = " + tuple.toString());
+        }
+
+        List<Tuple> resultByWhere = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(member.team, team)
+                .where(team.name.eq("데이터 플랫폼 팀"))
+                .fetch();
+
+        for (Tuple tuple : resultByWhere) {
+            System.out.println("tuple  = " + tuple.toString());
+        }
+        System.out.println();
+
+        // -------------------------------------------------------------- //
+    }
+
+    /**
+     * 연관 관계가 없는 외부 조인
+     * 회원의 이름이 팀 이름과 같은 대상을 외부 조인해라
+     */
+    @Test
+    public void join_on_no_relation() throws Exception {
+        em.persist(new Member("데이터 플랫폼 팀"));
+        em.persist(new Member("인프라 팀"));
+
+        // 연관 관계가 없는 경우
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                .join(team) // member.team - x
+                .on(member.userName.eq(team.name)) // 이름으로만 조인(필터링)
+                .fetch();
+
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple.toString());
+        }
+    }
 }

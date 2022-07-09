@@ -13,9 +13,12 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
 import javax.persistence.PersistenceContext;
+import javax.persistence.PersistenceUnit;
 import java.util.List;
 
+import static com.querydsl.jpa.JPAExpressions.select;
 import static com.study.querydsl.entity.QMember.member;
 import static com.study.querydsl.entity.QTeam.team;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -275,5 +278,252 @@ public class QueryDslBasicTest {
 
         assertThat(teamB.get(team.name)).isEqualTo("인프라 팀");
         assertThat(teamB.get(member.age.avg())).isEqualTo(28);
+    }
+
+    /**
+     *  데이터 플랫폼 팀에 소속된 모든 회원을 조인하여 가져온다
+     */
+    @Test
+    @DisplayName("조인 테스트")
+    public void join() throws Exception {
+        // INNER JOIN
+        /*List<Member> memberList = queryFactory
+                .selectFrom(member)
+                .join(member.team, team) // QTeam
+                .where(team.name.eq("데이터 플랫폼 팀"))
+                .fetch();*/
+
+        // LEFT JOIN
+        List<Member> memberList = queryFactory
+                .selectFrom(member)
+                .leftJoin(member.team, team) // QTeam
+                .where(team.name.eq("데이터 플랫폼 팀"))
+                .fetch();
+
+        for (Member member : memberList) {
+            System.out.println("[TEST] member = " + member.toString());
+        }
+
+        assertThat(memberList)
+                .extracting("userName")
+                .containsExactly("김영민", "원영식");
+
+        /*List<Team> teamList = queryFactory
+                .selectFrom(team)
+                .join(team.members, member)
+                .where(team.name.eq("데이터 플랫폼 팀"))
+                .fetch();
+
+        for (Team team : teamList) {
+            System.out.println("[TEST] team = " + team.toString());
+        }*/
+    }
+
+    /**
+     * 세타 조인
+     * 회원의 이름이 팀 이름과 같은 회원 조회
+     */
+    @Test
+    @DisplayName("세타 조인 - 연관관계가 없는 필드로 조인")
+    public void theta_join() throws Exception {
+        // 연관관계가 없는 경우 조인을 하는 방식
+        em.persist(new Member("데이터 플랫폼 팀"));
+        em.persist(new Member("인프라 팀"));
+
+        List<Member> result = queryFactory
+                .select(member)
+                .from(member, team)
+                .where(member.userName.eq(team.name))
+                .fetch();
+
+        assertThat(result)
+                .extracting("userName")
+                .containsExactly("데이터 플랫폼 팀", "인프라 팀");
+    }
+
+    /**
+     * ex) 회원 팀을 조인하면서, 팀 이름이 '데이터 플랫폼 팀'인 팀만 조회, 회원은 모두 조회
+     * JPQL
+     *  - select m, t
+     *      from Member m
+     *      left join m.team t
+     *      on t.name = 'teamA'
+     */
+    @Test
+    @DisplayName("조인 - on 절 테스트")
+    public void join_on_filtering() throws Exception {
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(member.team, team)
+                //.where(team.name.eq("데이터 플랫폼 팀")) // 전체 데이터에서 필터링(조건에 맞는 데이터만 출력)
+                .on(team.name.eq("데이터 플랫폼 팀")) // left join 의 조건이 되주어 null로 남는다
+                .fetch();
+
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple);
+        }
+    }
+
+    @Test
+    @DisplayName("다양한 on 절 케이스 테스트")
+    public void join_on_test() throws Exception {
+        // -------------------------------------------------------------- //
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(member.team, team)
+                .fetch();
+
+        for (Tuple tuple : result) {
+            System.out.println("tuple  = " + tuple.toString());
+        }
+
+        List<Tuple> resultByOn = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(member.team, team)
+                .on(team.name.eq("데이터 플랫폼 팀"))
+                .fetch();
+
+        for (Tuple tuple : resultByOn) {
+            System.out.println("tuple  = " + tuple.toString());
+        }
+
+        List<Tuple> resultByWhere = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(member.team, team)
+                .where(team.name.eq("데이터 플랫폼 팀"))
+                .fetch();
+
+        for (Tuple tuple : resultByWhere) {
+            System.out.println("tuple  = " + tuple.toString());
+        }
+        System.out.println();
+
+        // -------------------------------------------------------------- //
+    }
+
+    /**
+     * 연관 관계가 없는 외부 조인
+     * 회원의 이름이 팀 이름과 같은 대상을 외부 조인해라
+     */
+    @Test
+    public void join_on_no_relation() throws Exception {
+        em.persist(new Member("데이터 플랫폼 팀"));
+        em.persist(new Member("인프라 팀"));
+
+        // 연관 관계가 없는 경우
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                .join(team) // member.team - x
+                .on(member.userName.eq(team.name)) // 이름으로만 조인(필터링)
+                .fetch();
+
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple.toString());
+        }
+    }
+
+    @PersistenceUnit
+    EntityManagerFactory emf;
+
+    @Test
+    @DisplayName("패치 조인 적용 안한 경우 테스트")
+    public void fetchJoinNo() throws Exception {
+        em.flush();
+        em.clear();
+
+        Member findMember = queryFactory
+                .select(member)
+                .from(member)
+                .where(member.userName.eq("김영민"))
+                .fetchOne();
+
+        boolean loaded = emf.getPersistenceUnitUtil().isLoaded(findMember.getTeam());
+        assertThat(loaded).as("페치 조인 미적용").isFalse();
+    }
+
+    @Test
+    @DisplayName("패치 조인 적용 후 테스트")
+    public void fetchJoin() throws Exception {
+        em.flush();
+        em.clear();
+
+        Member findMember = queryFactory
+                .select(member)
+                .from(member)
+                .join(member.team, team).fetchJoin()
+                .where(member.userName.eq("김영민"))
+                .fetchOne();
+
+        boolean loaded = emf.getPersistenceUnitUtil().isLoaded(findMember.getTeam());
+        assertThat(loaded).as("페치 조인 적용").isTrue();
+    }
+
+    //------------------------------------------------------------------------------------//
+    /**
+     서브쿼리
+        1. 나이가 가장 많은 회원 조회
+        2. 나이가 평균 이상인 회원 조회
+     */
+
+    @Test
+    @DisplayName("서브 쿼리 테스트 - 나이가 가장 많은 회원 조회")
+    public void select_max_age_member() throws Exception {
+        QMember memberSub = new QMember("memberSub");
+
+        List<Member> result = queryFactory
+                .select(member)
+                .from(member)
+                .where(member.age.eq(
+                        select(memberSub.age.max())
+                                .from(memberSub)
+                ))
+                .fetch();
+        System.out.println(">>>> member = " + result);
+
+        assertThat(result.size()).isEqualTo(1);
+        assertThat(result.get(0).getAge()).isEqualTo(33);
+        assertThat(result).extracting("age").containsExactly(33);
+    }
+
+    @Test
+    @DisplayName("서브 쿼리 테스트 - 나이가 포함 되어 있는 회원 조회")
+    public void select_age_in_member() throws Exception {
+        QMember memberSub = new QMember("memberSub");
+
+        List<Member> result = queryFactory
+                .select(member)
+                .from(member)
+                .where(member.age.in(
+                        select(memberSub.age)
+                                .from(memberSub)
+                                .where(memberSub.age.goe(30)) // 30 이상, expect -> 2명
+                ))
+                .orderBy(member.age.desc())
+                .fetch();
+
+        System.out.println(">>> result = " + result);
+        assertThat(result).extracting("age").containsExactly(33, 30);
+    }
+
+    @Test
+    @DisplayName("select 절에 subquery 사용")
+    public void select_subquery() throws Exception {
+        QMember memberSub = new QMember("memberSub");
+
+        List<Tuple> result = queryFactory
+                .select(member.userName,
+                        select(memberSub.age.avg())
+                                .from(memberSub)
+                )
+                .from(member)
+                .orderBy(member.age.desc())
+                .fetch();
+
+        System.out.println("result = " + result);
     }
 }

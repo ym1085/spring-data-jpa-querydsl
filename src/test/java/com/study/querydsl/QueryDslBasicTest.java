@@ -276,4 +276,65 @@ public class QueryDslBasicTest {
         assertThat(teamB.get(team.name)).isEqualTo("인프라 팀");
         assertThat(teamB.get(member.age.avg())).isEqualTo(28);
     }
+
+    /**
+     *  데이터 플랫폼 팀에 소속된 모든 회원을 조인하여 가져온다
+     */
+    @Test
+    @DisplayName("조인 테스트")
+    public void join() throws Exception {
+        // INNER JOIN
+        /*List<Member> memberList = queryFactory
+                .selectFrom(member)
+                .join(member.team, team) // QTeam
+                .where(team.name.eq("데이터 플랫폼 팀"))
+                .fetch();*/
+
+        // LEFT JOIN
+        List<Member> memberList = queryFactory
+                .selectFrom(member)
+                .leftJoin(member.team, team) // QTeam
+                .where(team.name.eq("데이터 플랫폼 팀"))
+                .fetch();
+
+        for (Member member : memberList) {
+            System.out.println("[TEST] member = " + member.toString());
+        }
+
+        assertThat(memberList)
+                .extracting("userName")
+                .containsExactly("김영민", "원영식");
+
+        /*List<Team> teamList = queryFactory
+                .selectFrom(team)
+                .join(team.members, member)
+                .where(team.name.eq("데이터 플랫폼 팀"))
+                .fetch();
+
+        for (Team team : teamList) {
+            System.out.println("[TEST] team = " + team.toString());
+        }*/
+    }
+
+    /**
+     * 세타 조인
+     * 회원의 이름이 팀 이름과 같은 회원 조회
+     */
+    @Test
+    @DisplayName("세타 조인 - 연관관계가 없는 필드로 조인")
+    public void theta_join() throws Exception {
+        // 연관관계가 없는 경우 조인을 하는 방식
+        em.persist(new Member("데이터 플랫폼 팀"));
+        em.persist(new Member("인프라 팀"));
+
+        List<Member> result = queryFactory
+                .select(member)
+                .from(member, team)
+                .where(member.userName.eq(team.name))
+                .fetch();
+
+        assertThat(result)
+                .extracting("userName")
+                .containsExactly("데이터 플랫폼 팀", "인프라 팀");
+    }
 }
